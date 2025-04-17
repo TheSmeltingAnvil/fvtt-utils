@@ -1,0 +1,55 @@
+{
+  "name": "@foundryvtt/utils",
+  "version": "0.1.0",
+  "description": "Utilities for Foundry VTT",
+  "license": "MIT",
+  "keywords": [
+    "foundryvtt",
+    "foundryvtt-utils"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch src",
+    "format": "prettier --write .",
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix .",
+    "typecheck": "tsc --noEmit"
+  },
+  "packageManager": "pnpm@10.6.0",
+  "peerDependencies": {
+    "gulp": ">=5.0.0"
+  },
+  "dependencies": {
+    "classic-level": "^2.0.0",
+    "dotenv": "^16.4.7",
+    "fs-extra": "^11.3.0",
+    "gulp": "^5.0.0",
+    "nedb-promises": "^6.2.3",
+    "picocolors": "^1.1.1",
+    "yargs": "^17.7.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.24.0",
+    "@types/gulp": "^4.0.17",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.13.10",
+    "@types/yargs": "^17.0.33",
+    "@typescript-eslint/eslint-plugin": "^8.29.0",
+    "@typescript-eslint/parser": "^8.29.0",
+    "eslint": "^9.23.0",
+    "eslint-config-prettier": "^10.1.1",
+    "eslint-js": "github:eslint/js",
+    "eslint-plugin-prettier": "^5.2.6",
+    "globals": "^16.0.0",
+    "js-yaml": "^4.1.0",
+    "prettier": "^3.5.3",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.29.0"
+  }
+}
