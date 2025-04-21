@@ -23,7 +23,7 @@ declare function compilePack(src: string, dest: string, { nedb, yaml, recursive,
  * @param options.log            Whether to log operation progress to the console.
  * @param options.transformEntry A function that is called on every entry to transform it.
  */
-declare function extractPack(src: string, dest: string, { nedb, yaml, yamlOptions, jsonOptions, log, documentType, collection, clean, folders, transformEntry, transformName, transformFolderName, }?: Partial<ExtractOptions>): Promise<void>;
+declare function extractPack(src: string, dest: string, { nedb, yaml, yamlOptions, jsonOptions, log, clean, folders, transformEntry, transformName, transformFolderName, }?: Partial<ExtractOptions>): Promise<void>;
 /**
  * @param entry The entry data.
  * @returns `false` to indicate that this entry should be discarded.

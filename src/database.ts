@@ -135,8 +135,8 @@ export async function extractPack(
     yamlOptions = {},
     jsonOptions = {},
     log = false,
-    documentType,
-    collection,
+    ////documentType,
+    ////collection,
     clean,
     folders,
     transformEntry,
@@ -145,10 +145,10 @@ export async function extractPack(
   }: Partial<ExtractOptions> = {},
 ): Promise<void> {
   if (nedb) throw new Error("NeDB files are obsolete and only Classic database level files are handled!")
-  if (!documentType) {
-    throw new Error("The documentType option was undefined.")
-  }
-  collection ??= TYPE_COLLECTION_MAP[documentType]
+  ////if (!documentType) {
+  ////  throw new Error("The documentType option was undefined.")
+  ////}
+  ////collection ??= TYPE_COLLECTION_MAP[documentType]
   if (clean) fse.rmSync(dest, { force: true, recursive: true, maxRetries: 10 })
   // Create the output directory if it doesn't exist already.
   fse.mkdirSync(dest, { recursive: true })

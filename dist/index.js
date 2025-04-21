@@ -2690,8 +2690,8 @@ async function extractPack(src, dest, {
   yamlOptions = {},
   jsonOptions = {},
   log = false,
-  documentType,
-  collection,
+  ////documentType,
+  ////collection,
   clean,
   folders,
   transformEntry,
@@ -2699,10 +2699,6 @@ async function extractPack(src, dest, {
   transformFolderName
 } = {}) {
   if (nedb) throw new Error("NeDB files are obsolete and only Classic database level files are handled!");
-  if (!documentType) {
-    throw new Error("The documentType option was undefined.");
-  }
-  collection ??= TYPE_COLLECTION_MAP[documentType];
   if (clean) fse.rmSync(dest, { force: true, recursive: true, maxRetries: 10 });
   fse.mkdirSync(dest, { recursive: true });
   return extractClassicLevel(src, dest, {
@@ -2886,23 +2882,6 @@ var HIERARCHY = {
     tiles: [],
     walls: []
   }
-};
-var TYPE_COLLECTION_MAP = {
-  Actor: "actors",
-  Adventure: "adventures",
-  Cards: "cards",
-  ChatMessage: "messages",
-  Combat: "combats",
-  FogExploration: "fog",
-  Folder: "folders",
-  Item: "items",
-  JournalEntry: "journal",
-  Macro: "macros",
-  Playlist: "playlists",
-  RollTable: "tables",
-  Scene: "scenes",
-  Setting: "settings",
-  User: "users"
 };
 
 // src/utils.ts
