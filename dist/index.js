@@ -2955,10 +2955,10 @@ async function getFoundryConfigPath(rootPath = ".") {
   }
 }
 async function getFoundryPackageType(rootPath = ".") {
-  if (await fse2.exists(import_node_path2.default.resolve(rootPath, "system.json")) || await fse2.exists(import_node_path2.default.resolve(rootPath, "src", "system.json")) || await fse2.exists(import_node_path2.default.resolve(rootPath, "public", "system.json")) || await fse2.exists(import_node_path2.default.resolve(rootPath, "src", "system.yml"))) {
+  if (await fse2.exists(import_node_path2.default.resolve(rootPath, "system.json")) || await fse2.exists(import_node_path2.default.resolve(rootPath, "src", "system.json")) || await fse2.exists(import_node_path2.default.resolve(rootPath, "public", "system.json")) || await fse2.exists(import_node_path2.default.resolve(rootPath, "static", "system.json")) || await fse2.exists(import_node_path2.default.resolve(rootPath, "system.yml")) || await fse2.exists(import_node_path2.default.resolve(rootPath, "system.yaml")) || await fse2.exists(import_node_path2.default.resolve(rootPath, "src", "system.yml")) || await fse2.exists(import_node_path2.default.resolve(rootPath, "src", "system.yaml"))) {
     return "system";
   }
-  if (await fse2.exists(import_node_path2.default.resolve(rootPath, "module.json")) || await fse2.exists(import_node_path2.default.resolve(rootPath, "src", "module.json")) || await fse2.exists(import_node_path2.default.resolve(rootPath, "public", "module.json")) || await fse2.exists(import_node_path2.default.resolve(rootPath, "src", "module.yml"))) {
+  if (await fse2.exists(import_node_path2.default.resolve(rootPath, "module.json")) || await fse2.exists(import_node_path2.default.resolve(rootPath, "src", "module.json")) || await fse2.exists(import_node_path2.default.resolve(rootPath, "public", "module.json")) || await fse2.exists(import_node_path2.default.resolve(rootPath, "static", "module.json")) || await fse2.exists(import_node_path2.default.resolve(rootPath, "module.yml")) || await fse2.exists(import_node_path2.default.resolve(rootPath, "module.yaml")) || await fse2.exists(import_node_path2.default.resolve(rootPath, "src", "module.yml")) || await fse2.exists(import_node_path2.default.resolve(rootPath, "src", "module.yaml"))) {
     return "module";
   }
   throw new Error("Could not find either system.{json,yml} nor module.{json,yml}");

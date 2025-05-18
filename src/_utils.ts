@@ -56,7 +56,11 @@ export async function getFoundryPackageType(rootPath = "."): Promise<"module" | 
     (await fse.exists(path.resolve(rootPath, "system.json"))) ||
     (await fse.exists(path.resolve(rootPath, "src", "system.json"))) ||
     (await fse.exists(path.resolve(rootPath, "public", "system.json"))) ||
-    (await fse.exists(path.resolve(rootPath, "src", "system.yml")))
+    (await fse.exists(path.resolve(rootPath, "static", "system.json"))) ||
+    (await fse.exists(path.resolve(rootPath, "system.yml"))) ||
+    (await fse.exists(path.resolve(rootPath, "system.yaml"))) ||
+    (await fse.exists(path.resolve(rootPath, "src", "system.yml"))) ||
+    (await fse.exists(path.resolve(rootPath, "src", "system.yaml")))
   ) {
     return "system"
   }
@@ -65,7 +69,11 @@ export async function getFoundryPackageType(rootPath = "."): Promise<"module" | 
     (await fse.exists(path.resolve(rootPath, "module.json"))) ||
     (await fse.exists(path.resolve(rootPath, "src", "module.json"))) ||
     (await fse.exists(path.resolve(rootPath, "public", "module.json"))) ||
-    (await fse.exists(path.resolve(rootPath, "src", "module.yml")))
+    (await fse.exists(path.resolve(rootPath, "static", "module.json"))) ||
+    (await fse.exists(path.resolve(rootPath, "module.yml"))) ||
+    (await fse.exists(path.resolve(rootPath, "module.yaml"))) ||
+    (await fse.exists(path.resolve(rootPath, "src", "module.yml"))) ||
+    (await fse.exists(path.resolve(rootPath, "src", "module.yaml")))
   ) {
     return "module"
   }
