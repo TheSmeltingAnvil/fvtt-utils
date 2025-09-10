@@ -5,7 +5,7 @@ import path from "node:path"
 
 /**
  *
- * @param installPath
+ * @param mainJsPath
  * @param dataPath
  * @param [options] The options.
  * @param options.demo Launch Foundry VTT server in demo mode.
@@ -16,7 +16,7 @@ import path from "node:path"
  * @param options.adminKey The admin key to secure Foundry VTT's Setup screen with.
  */
 export function launchFoundryPrivate(
-  installPath: string,
+  mainJsPath: string,
   dataPath: string,
   {
     world,
@@ -36,7 +36,7 @@ export function launchFoundryPrivate(
 ) {
   // Launch Foundry VTT
   const foundry = spawn("node", [
-    path.normalize(path.join(installPath, "resources", "app", "main.js")),
+    mainJsPath,
     `--dataPath=${dataPath}`,
     `--port=${port}`,
     demo ? "--demo" : "",

@@ -95,6 +95,7 @@ interface FoundryConfigInfo {
     installPath: string[];
     resolvedDataPath: string[];
     resolvedInstallPath: string[];
+    resolvedMainJs: string;
 }
 /**
  * Get Foundry VTT package information stored in "package.json".

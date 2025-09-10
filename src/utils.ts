@@ -32,6 +32,7 @@ export interface FoundryConfigInfo {
   installPath: string[]
   resolvedDataPath: string[]
   resolvedInstallPath: string[]
+  resolvedMainJs: string
 }
 
 /**
@@ -68,7 +69,10 @@ export async function getFoundryConfigInfo(rootPath = "."): Promise<FoundryConfi
   const foundryConfig =
     path.extname(foundryConfigPath) == ".json"
       ? await fse.readJSON(foundryConfigPath)
-      : YAML.load(await fse.readFile(foundryConfigPath, "utf-8"), { json: true, filename: foundryConfigPath })
+      : YAML.load(await fse.readFile(foundryConfigPath, "utf-8"), {
+          json: true,
+          filename: foundryConfigPath,
+        })
 
   let dataPaths = foundryConfig.dataPath ?? []
   if (!Array.isArray(dataPaths)) dataPaths = [dataPaths]
@@ -77,25 +81,46 @@ export async function getFoundryConfigInfo(rootPath = "."): Promise<FoundryConfi
 
   let installPaths = foundryConfig.installPath ?? []
   if (!Array.isArray(installPaths)) installPaths = [installPaths]
+  const resolvedInstallPath = resolvePath(installPaths)
+  const resolvedMainJs = resolveMainJs(resolvedInstallPath)
+
   foundryConfig.installPath = installPaths
-  foundryConfig.resolvedInstallPath = resolvePath(installPaths)
+  foundryConfig.resolvedInstallPath = resolvedInstallPath
+  foundryConfig.resolvedMainJs = resolvedMainJs
 
   return foundryConfig
+
+  function replaceEnvVars(input: string): string {
+    return input.replaceAll(getPattern(), (_, ...groups: string[]) => {
+      return process.env[groups[0]] || ""
+    })
+
+    function getPattern(): RegExp {
+      return process.platform === "win32" ? /%(.*)%/g : /$(.*)/g
+    }
+  }
 
   function resolvePath(paths: string[]): string[] {
     return paths
       .map((p: string) => {
-        p = p.replaceAll(getPattern(), (_, ...groups: string[]) => process.env[groups[0]] || "")
+        p = replaceEnvVars(p)
         if (!fse.statSync(path.resolve(p)).isDirectory()) {
           return undefined
         }
         return path.resolve(p)
       })
-      .filter((x) => x !== undefined)
+      .filter((p) => p !== undefined)
+  }
 
-    function getPattern(): RegExp {
-      return process.platform === "win32" ? /%(.*)%/g : /$(.*)/g
-    }
+  function resolveMainJs(paths: string[]): string {
+    const candidates = paths
+      .flatMap((p) => [
+        path.normalize(path.join(p, "resources", "app", "main.js")), // before v13
+        path.normalize(path.join(p, "main.js")), // v13
+      ])
+      .filter((p) => fse.pathExistsSync(p))
+    if (candidates.length === 0) throw new Error("No main.js found in any of the installation paths.")
+    return candidates[0]
   }
 }
 
@@ -131,17 +156,7 @@ export async function launchFoundry(
   const foundryConfig = await getFoundryConfigInfo(rootPath)
   if (!foundryConfig) return
 
-  const installPath = (() => {
-    const installPath = foundryConfig.installPath
-    if (installPath.length === 0)
-      throw new Error("No installation path set in Foundry VTT config file! Please add some.")
-
-    const resolvedInstallPath = foundryConfig.resolvedInstallPath
-    if (!resolvedInstallPath)
-      throw new Error("No installation path found!\nSearch for: \n - " + installPath.join("\n - "))
-
-    return resolvedInstallPath[0]
-  })()
+  const mainJsPath = foundryConfig.resolvedMainJs
 
   dataPath ??= (() => {
     const dataPath = foundryConfig.dataPath
@@ -156,7 +171,7 @@ export async function launchFoundry(
   dotenv.configDotenv({ path: rootPath, encoding: "utf-8" })
   const adminKey = process.env.ADMIN_KEY
 
-  launchFoundryPrivate(installPath, dataPath, {
+  launchFoundryPrivate(mainJsPath, dataPath, {
     demo,
     port: port ?? 30000,
     world,
