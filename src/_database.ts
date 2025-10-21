@@ -1,4 +1,4 @@
-// Forked from @froundryvtt/cli
+// Forked from @foundryvtt/cli
 
 import * as fse from "fs-extra"
 import * as YAML from "js-yaml"

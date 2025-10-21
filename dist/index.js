@@ -32,14 +32,15 @@ var index_exports = {};
 __export(index_exports, {
   compilePack: () => compilePack,
   extractPack: () => extractPack,
+  findManifest: () => findManifest,
   getFoundryConfigInfo: () => getFoundryConfigInfo,
-  getFoundryPackageInfo: () => getFoundryPackageInfo,
   launchFoundry: () => launchFoundry
 });
 module.exports = __toCommonJS(index_exports);
 
-// src/database.ts
-var fse = __toESM(require("fs-extra"));
+// src/_config.ts
+var import_fs_extra2 = __toESM(require("fs-extra"));
+var import_path2 = __toESM(require("path"));
 
 // node_modules/.pnpm/js-yaml@4.1.0/node_modules/js-yaml/dist/js-yaml.mjs
 function isNothing(subject) {
@@ -2617,15 +2618,160 @@ function renamed(from, to) {
     throw new Error("Function yaml." + from + " is removed in js-yaml 4. Use yaml." + to + " instead, which is now safe by default.");
   };
 }
+var Type = type;
+var Schema = schema;
+var FAILSAFE_SCHEMA = failsafe;
+var JSON_SCHEMA = json;
+var CORE_SCHEMA = core;
+var DEFAULT_SCHEMA = _default;
 var load = loader.load;
 var loadAll = loader.loadAll;
 var dump = dumper.dump;
+var YAMLException = exception;
+var types = {
+  binary,
+  float,
+  map,
+  null: _null,
+  pairs,
+  set,
+  timestamp,
+  bool,
+  int,
+  merge,
+  omap,
+  seq,
+  str
+};
 var safeLoad = renamed("safeLoad", "load");
 var safeLoadAll = renamed("safeLoadAll", "loadAll");
 var safeDump = renamed("safeDump", "dump");
+var jsYaml = {
+  Type,
+  Schema,
+  FAILSAFE_SCHEMA,
+  JSON_SCHEMA,
+  CORE_SCHEMA,
+  DEFAULT_SCHEMA,
+  load,
+  loadAll,
+  dump,
+  YAMLException,
+  types,
+  safeLoad,
+  safeLoadAll,
+  safeDump
+};
+var js_yaml_default = jsYaml;
 
-// src/database.ts
+// src/_config.ts
+var import_process3 = __toESM(require("process"));
+
+// src/_utils/getFoundryConfigPath.ts
+var import_process2 = __toESM(require("process"));
+
+// src/_utils/getFoundryConfigFileNames.ts
+var import_process = require("process");
+var defaultFoundryConfigCandidates = [
+  "**/foundryconfig.json",
+  "**/foundryconfig.yaml",
+  "**/foundryconfig.yml"
+];
+function getFoundryConfigFileNames() {
+  const searchPaths = [...defaultFoundryConfigCandidates];
+  const os = (() => {
+    switch (import_process.platform) {
+      case "darwin":
+        return "macosx";
+      case "linux":
+        return "linux";
+      case "win32":
+        return "windows";
+      default:
+        return void 0;
+    }
+  })();
+  if (os) {
+    const filenameWithoutExt = `**/foundryconfig.${os}`;
+    searchPaths.push(filenameWithoutExt + ".json");
+    searchPaths.push(filenameWithoutExt + ".yaml");
+    searchPaths.push(filenameWithoutExt + ".yml");
+  }
+  return searchPaths;
+}
+
+// src/_utils/walkFiles.ts
+var import_fs_extra = __toESM(require("fs-extra"));
 var import_path = __toESM(require("path"));
+function walkFiles(pattern, { cwd, exclude }) {
+  return import_fs_extra.default.globSync(pattern, { cwd, exclude }).map((match) => {
+    const dir = cwd?.replaceAll(/\\/g, "/") ?? "";
+    return import_path.default.resolve(dir, match);
+  });
+}
+
+// src/_utils/getFoundryConfigPath.ts
+async function getFoundryConfigPath(cwd) {
+  const configCandidates = getFoundryConfigFileNames();
+  cwd ??= import_process2.default.cwd();
+  const found = walkFiles(configCandidates, { cwd });
+  if (found.length === 0)
+    throw new Error("Could not find any foundryconfig.(json|yaml|yml) or foundryconfig.<OS>.(json|yaml|yml) file.");
+  return found[0];
+}
+
+// src/_config.ts
+async function getFoundryConfigInfo(cwd) {
+  const foundryConfigPath = await getFoundryConfigPath(cwd);
+  if (!foundryConfigPath) return void 0;
+  const foundryConfig = import_path2.default.extname(foundryConfigPath) == ".json" ? await import_fs_extra2.default.readJSON(foundryConfigPath) : js_yaml_default.load(await import_fs_extra2.default.readFile(foundryConfigPath, "utf-8"), {
+    json: true,
+    filename: foundryConfigPath
+  });
+  let dataPaths = foundryConfig.dataPath ?? [];
+  if (!Array.isArray(dataPaths)) dataPaths = [dataPaths];
+  foundryConfig.dataPath = dataPaths;
+  foundryConfig.resolvedDataPath = resolvePath(dataPaths);
+  let installPaths = foundryConfig.installPath ?? [];
+  if (!Array.isArray(installPaths)) installPaths = [installPaths];
+  const resolvedInstallPath = resolvePath(installPaths);
+  const resolvedMainJs = resolveMainJs(resolvedInstallPath);
+  foundryConfig.installPath = installPaths;
+  foundryConfig.resolvedInstallPath = resolvedInstallPath;
+  foundryConfig.resolvedMainJs = resolvedMainJs;
+  return foundryConfig;
+  function replaceEnvVars(input) {
+    return input.replaceAll(getPattern(), (_, ...groups) => {
+      return import_process3.default.env[groups[0]] || "";
+    });
+    function getPattern() {
+      return import_process3.default.platform === "win32" ? /%(.*)%/g : /$(.*)/g;
+    }
+  }
+  function resolvePath(paths) {
+    return paths.map((p) => {
+      p = replaceEnvVars(p);
+      if (!import_fs_extra2.default.statSync(import_path2.default.resolve(p)).isDirectory()) {
+        return void 0;
+      }
+      return import_path2.default.resolve(p);
+    }).filter((p) => p !== void 0);
+  }
+  function resolveMainJs(paths) {
+    const candidates = paths.flatMap((p) => [
+      import_path2.default.normalize(import_path2.default.join(p, "resources", "app", "main.js")),
+      // before v13
+      import_path2.default.normalize(import_path2.default.join(p, "main.js"))
+      // v13
+    ]).filter((p) => import_fs_extra2.default.pathExistsSync(p));
+    if (candidates.length === 0) throw new Error("No main.js found in any of the installation paths.");
+    return candidates[0];
+  }
+}
+
+// src/_database.ts
+var fse = __toESM(require("fs-extra"));
+var import_path3 = __toESM(require("path"));
 var import_picocolors = __toESM(require("picocolors"));
 var import_classic_level = require("classic-level");
 async function compilePack(src, dest, { nedb = false, yaml = false, recursive = false, log = false, transformEntry } = {}) {
@@ -2653,7 +2799,7 @@ async function compileClassicLevel(pack, files, { log, transformEntry } = {}) {
   for (const file of files) {
     try {
       const contents = fse.readFileSync(file, "utf8");
-      const ext = import_path.default.extname(file);
+      const ext = import_path3.default.extname(file);
       const isYaml = ext === ".yml" || ext === ".yaml";
       const doc = isYaml ? load(contents) : JSON.parse(contents);
       const [, collection] = doc._key.split("!");
@@ -2736,7 +2882,7 @@ async function extractClassicLevel(pack, dest, {
       let parent = foldersMap.get(folder.folder);
       folder.path = folder.name;
       while (parent) {
-        folder.path = import_path.default.join(parent.name, folder.path);
+        folder.path = import_path3.default.join(parent.name, folder.path);
         parent = foldersMap.get(parent.folder);
       }
     }
@@ -2761,13 +2907,13 @@ async function extractClassicLevel(pack, dest, {
     if (!name) {
       if (key.startsWith("!folders") && foldersMap?.has(doc._id)) {
         const folder2 = foldersMap.get(doc._id);
-        name = import_path.default.join(folder2.name, `_Folder.${yaml ? "yml" : "json"}`);
+        name = import_path3.default.join(folder2.name, `_Folder.${yaml ? "yml" : "json"}`);
       } else {
         name = `${doc.name ? `${getSafeFilename(doc.name)}_${id}` : key}.${yaml ? "yml" : "json"}`;
       }
-      if (folder) name = import_path.default.join(folder, name);
+      if (folder) name = import_path3.default.join(folder, name);
     }
-    const filename = import_path.default.join(dest, name);
+    const filename = import_path3.default.join(dest, name);
     serializeDocument(doc, filename, { yaml, yamlOptions, jsonOptions });
     if (log) console.log(`Wrote ${import_picocolors.default.blue(name)}`);
   }
@@ -2807,13 +2953,13 @@ async function mapHierarchy(doc, collection, fn) {
 function findSourceFiles(root, { yaml = false, recursive = false } = {}) {
   const files = [];
   for (const entry of fse.readdirSync(root, { withFileTypes: true })) {
-    const name = import_path.default.join(root, entry.name);
+    const name = import_path3.default.join(root, entry.name);
     if (entry.isDirectory() && recursive) {
       files.push(...findSourceFiles(name, { yaml, recursive }));
       continue;
     }
     if (!entry.isFile()) continue;
-    const ext = import_path.default.extname(name);
+    const ext = import_path3.default.extname(name);
     const isYaml = ext === ".yml" || ext === ".yaml";
     if (yaml && isYaml) files.push(name);
     else if (!yaml && ext === ".json") files.push(name);
@@ -2827,7 +2973,7 @@ function keyJoin(...args) {
   return args.filter((_) => _).join(".");
 }
 function serializeDocument(doc, filename, { yaml, yamlOptions = {}, jsonOptions = {} } = {}) {
-  fse.mkdirSync(import_path.default.dirname(filename), { recursive: true });
+  fse.mkdirSync(import_path3.default.dirname(filename), { recursive: true });
   const serialized = (() => {
     if (yaml) return dump(doc, yamlOptions);
     else {
@@ -2884,150 +3030,9 @@ var HIERARCHY = {
   }
 };
 
-// src/utils.ts
-var import_dotenv = __toESM(require("dotenv"));
-var fse3 = __toESM(require("fs-extra"));
-var import_node_path2 = __toESM(require("path"));
-
 // src/_launch.ts
-var import_node_child_process = require("child_process");
-function launchFoundryPrivate(mainJsPath, dataPath, {
-  world,
-  port,
-  demo,
-  noupnp,
-  noupdate,
-  adminKey
-} = { port: 3e4 }) {
-  const foundry = (0, import_node_child_process.spawn)("node", [
-    mainJsPath,
-    `--dataPath=${dataPath}`,
-    `--port=${port}`,
-    demo ? "--demo" : "",
-    world ? `--world=${world}` : "",
-    noupnp ? "--noupnp" : "",
-    noupdate ? "--noupdate" : "",
-    adminKey ? `--adminKey=${adminKey}` : ""
-  ]);
-  foundry.stdout.on("data", (data) => console.log(data.toString()));
-  foundry.stderr.on("data", (data) => console.error(data.toString()));
-  foundry.on("close", (code) => console.log(`Foundry VTT exited with code ${code}`));
-}
-
-// src/_utils.ts
-var fse2 = __toESM(require("fs-extra"));
-var import_node_path = __toESM(require("path"));
-var import_node_process = require("process");
-async function getFoundryConfigPath(rootPath = ".") {
-  const searchPaths = getSearchPaths();
-  for (const searchPath of searchPaths) {
-    if (await fse2.exists(searchPath)) {
-      return searchPath;
-    }
-  }
-  throw new Error("No Foundry VTT config file found.\nSearch for:\n  - " + searchPaths.join("\n  - "));
-  function getSearchPaths() {
-    const searchPaths2 = [
-      import_node_path.default.join(rootPath, "foundryconfig.yml"),
-      import_node_path.default.join(rootPath, "foundryconfig.yaml"),
-      import_node_path.default.join(rootPath, "foundryconfig.json")
-    ];
-    const os = (() => {
-      switch (import_node_process.platform) {
-        case "darwin":
-          return "macosx";
-        case "linux":
-          return "linux";
-        case "win32":
-          return "windows";
-        default:
-          return void 0;
-      }
-    })();
-    if (os) {
-      const filenameWithoutExt = `foundryconfig.${os}`;
-      searchPaths2.push(import_node_path.default.join(rootPath, filenameWithoutExt + ".yml"));
-      searchPaths2.push(import_node_path.default.join(rootPath, filenameWithoutExt + ".yaml"));
-      searchPaths2.push(import_node_path.default.join(rootPath, filenameWithoutExt + ".json"));
-    }
-    return searchPaths2;
-  }
-}
-async function getFoundryPackageType(rootPath = ".") {
-  if (await fse2.exists(import_node_path.default.resolve(rootPath, "system.json")) || await fse2.exists(import_node_path.default.resolve(rootPath, "src", "system.json")) || await fse2.exists(import_node_path.default.resolve(rootPath, "public", "system.json")) || await fse2.exists(import_node_path.default.resolve(rootPath, "static", "system.json")) || await fse2.exists(import_node_path.default.resolve(rootPath, "system.yml")) || await fse2.exists(import_node_path.default.resolve(rootPath, "system.yaml")) || await fse2.exists(import_node_path.default.resolve(rootPath, "src", "system.yml")) || await fse2.exists(import_node_path.default.resolve(rootPath, "src", "system.yaml"))) {
-    return "system";
-  }
-  if (await fse2.exists(import_node_path.default.resolve(rootPath, "module.json")) || await fse2.exists(import_node_path.default.resolve(rootPath, "src", "module.json")) || await fse2.exists(import_node_path.default.resolve(rootPath, "public", "module.json")) || await fse2.exists(import_node_path.default.resolve(rootPath, "static", "module.json")) || await fse2.exists(import_node_path.default.resolve(rootPath, "module.yml")) || await fse2.exists(import_node_path.default.resolve(rootPath, "module.yaml")) || await fse2.exists(import_node_path.default.resolve(rootPath, "src", "module.yml")) || await fse2.exists(import_node_path.default.resolve(rootPath, "src", "module.yaml"))) {
-    return "module";
-  }
-  throw new Error("Could not find either system.{json,yml} nor module.{json,yml}");
-}
-async function readPackageJson(rootPath = ".", fileName = "package.json") {
-  const filepath = import_node_path.default.resolve(import_node_path.default.join(rootPath, fileName));
-  const data = await fse2.readFile(filepath, "utf-8");
-  return JSON.parse(data);
-}
-
-// src/utils.ts
-async function getFoundryPackageInfo(rootPath = ".", fileName = "package.json") {
-  const packageJson = await readPackageJson(rootPath, fileName);
-  const foundry = packageJson.foundry;
-  const packageType = await getFoundryPackageType(rootPath);
-  const packageTypePrefix = `${packageType}s`;
-  return {
-    type: packageType,
-    ...foundry,
-    path: `${packageTypePrefix}/${foundry.id}/`,
-    prefixUrl: `/${packageTypePrefix}/${foundry.id}/`
-  };
-}
-async function getFoundryConfigInfo(rootPath = ".") {
-  const foundryConfigPath = await getFoundryConfigPath(rootPath);
-  if (!foundryConfigPath) return void 0;
-  const foundryConfig = import_node_path2.default.extname(foundryConfigPath) == ".json" ? await fse3.readJSON(foundryConfigPath) : load(await fse3.readFile(foundryConfigPath, "utf-8"), {
-    json: true,
-    filename: foundryConfigPath
-  });
-  let dataPaths = foundryConfig.dataPath ?? [];
-  if (!Array.isArray(dataPaths)) dataPaths = [dataPaths];
-  foundryConfig.dataPath = dataPaths;
-  foundryConfig.resolvedDataPath = resolvePath(dataPaths);
-  let installPaths = foundryConfig.installPath ?? [];
-  if (!Array.isArray(installPaths)) installPaths = [installPaths];
-  const resolvedInstallPath = resolvePath(installPaths);
-  const resolvedMainJs = resolveMainJs(resolvedInstallPath);
-  foundryConfig.installPath = installPaths;
-  foundryConfig.resolvedInstallPath = resolvedInstallPath;
-  foundryConfig.resolvedMainJs = resolvedMainJs;
-  return foundryConfig;
-  function replaceEnvVars(input) {
-    return input.replaceAll(getPattern(), (_, ...groups) => {
-      return process.env[groups[0]] || "";
-    });
-    function getPattern() {
-      return process.platform === "win32" ? /%(.*)%/g : /$(.*)/g;
-    }
-  }
-  function resolvePath(paths) {
-    return paths.map((p) => {
-      p = replaceEnvVars(p);
-      if (!fse3.statSync(import_node_path2.default.resolve(p)).isDirectory()) {
-        return void 0;
-      }
-      return import_node_path2.default.resolve(p);
-    }).filter((p) => p !== void 0);
-  }
-  function resolveMainJs(paths) {
-    const candidates = paths.flatMap((p) => [
-      import_node_path2.default.normalize(import_node_path2.default.join(p, "resources", "app", "main.js")),
-      // before v13
-      import_node_path2.default.normalize(import_node_path2.default.join(p, "main.js"))
-      // v13
-    ]).filter((p) => fse3.pathExistsSync(p));
-    if (candidates.length === 0) throw new Error("No main.js found in any of the installation paths.");
-    return candidates[0];
-  }
-}
+var import_child_process = require("child_process");
+var dotenv = __toESM(require("dotenv"));
 async function launchFoundry(rootPath = ".", {
   dataPath,
   world,
@@ -3046,7 +3051,7 @@ async function launchFoundry(rootPath = ".", {
     if (!resolvedDataPath) throw new Error("No data path found!\nSearch for: \n - " + dataPath2.join("\n - "));
     return resolvedDataPath[0];
   })();
-  import_dotenv.default.configDotenv({ path: rootPath, encoding: "utf-8" });
+  dotenv.configDotenv({ path: rootPath, encoding: "utf-8" });
   const adminKey = process.env.ADMIN_KEY;
   launchFoundryPrivate(mainJsPath, dataPath, {
     demo,
@@ -3057,12 +3062,78 @@ async function launchFoundry(rootPath = ".", {
     adminKey
   });
 }
+function launchFoundryPrivate(mainJsPath, dataPath, {
+  world,
+  port,
+  demo,
+  noupnp,
+  noupdate,
+  adminKey
+} = { port: 3e4 }) {
+  const foundry = (0, import_child_process.spawn)("node", [
+    mainJsPath,
+    `--dataPath=${dataPath}`,
+    `--port=${port}`,
+    demo ? "--demo" : "",
+    world ? `--world=${world}` : "",
+    noupnp ? "--noupnp" : "",
+    noupdate ? "--noupdate" : "",
+    adminKey ? `--adminKey=${adminKey}` : ""
+  ]);
+  foundry.stdout.on("data", (data) => console.log(data.toString()));
+  foundry.stderr.on("data", (data) => console.error(data.toString()));
+  foundry.on("close", (code) => console.log(`Foundry VTT exited with code ${code}`));
+}
+
+// src/_manifest.ts
+var import_fs_extra3 = __toESM(require("fs-extra"));
+var import_path4 = __toESM(require("path"));
+var manifestCandidates = [
+  "**/module.json",
+  "**/module.yaml",
+  "**/module.yml",
+  "**/system.json",
+  "**/system.yaml",
+  "**/system.yml"
+];
+async function findManifest(cwd) {
+  cwd ??= process.cwd();
+  const found = walkFiles(manifestCandidates, { cwd });
+  if (found.length === 0) return void 0;
+  const manifestPath = found[0];
+  const { base } = import_path4.default.parse(manifestPath);
+  let cachedManifest = void 0;
+  const manifest = async () => cachedManifest ??= await loadManifest(manifestPath);
+  const manifestInfo = {
+    path: manifestPath,
+    type: base,
+    manifest,
+    baseUrl: () => getFoundryBaseUrl(manifestInfo)
+  };
+  return manifestInfo;
+}
+async function loadManifest(manifestPath) {
+  const { ext } = import_path4.default.posix.parse(manifestPath);
+  const manifestData = await import_fs_extra3.default.readFile(manifestPath, "utf8");
+  return ext === ".json" ? JSON.parse(manifestData) : js_yaml_default.load(manifestData);
+}
+var mapping = /* @__PURE__ */ new Map([
+  ["module", "/modules/"],
+  ["system", "/systems/"]
+]);
+async function getFoundryBaseUrl(manifestInfo) {
+  const prefix = mapping.get(manifestInfo.type);
+  if (!prefix) return void 0;
+  const { id } = await manifestInfo.manifest() ?? { id: void 0 };
+  if (!id) return void 0;
+  return import_path4.default.posix.join(prefix, id);
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   compilePack,
   extractPack,
+  findManifest,
   getFoundryConfigInfo,
-  getFoundryPackageInfo,
   launchFoundry
 });
 /*! Bundled license information:

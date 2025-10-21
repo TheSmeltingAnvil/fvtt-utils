@@ -1,5 +1,25 @@
 import * as YAML from 'js-yaml';
 
+/** The information about a Foundry VTT configuration. */
+interface FoundryConfigInfo {
+    /** The data paths for the Foundry VTT. */
+    dataPath: string[];
+    /** The installation paths for the Foundry VTT. */
+    installPath: string[];
+    /** The resolved data paths for the Foundry VTT. */
+    resolvedDataPath: string[];
+    /** The resolved installation paths for the Foundry VTT. */
+    resolvedInstallPath: string[];
+    /** The resolved main.js file path for the Foundry VTT. */
+    resolvedMainJs: string;
+}
+/**
+ * Get Foundry VTT config information stored in `foundry.{json|yaml|yml}` or `foundry.<OS>.{json|yaml|yml}`.
+ * @param cwd The directory path to the root of the Foundry VTT package.
+ * @returns Foundry VTT configuration information.
+ */
+declare function getFoundryConfigInfo(cwd?: string): Promise<FoundryConfigInfo | undefined>;
+
 /**
  * Compile source files into a compendium pack.
  * @param src   The directory containing the source files.
@@ -72,44 +92,6 @@ type NameTransformer = (entry: object, context?: {
 type DocumentType = "Actor" | "Adventure" | "Cards" | "ChatMessage" | "Combat" | "FogExploration" | "Folder" | "Item" | "JournalEntry" | "Macro" | "Playlist" | "RollTable" | "Scene" | "Setting" | "User";
 type DocumentCollection = "actors" | "adventures" | "cards" | "messages" | "combats" | "fog" | "folders" | "items" | "journal" | "macros" | "playlists" | "tables" | "scenes" | "settings" | "users";
 
-/** Information about a Foundry VTT package. */
-interface FoundryInfo {
-    /** The package identifier. */
-    id: string;
-    /** The package title. */
-    title: string;
-    /** The package version. */
-    version: string;
-    /** The Foundry VTT required version. */
-    required_version: string;
-    /** The Foundry VTT minimum version. */
-    minimum_version: string;
-    /** The Foundry VTT maximum version. */
-    maximum_version: string;
-    type: "module" | "system";
-    path: string;
-    prefixUrl: string;
-}
-interface FoundryConfigInfo {
-    dataPath: string[];
-    installPath: string[];
-    resolvedDataPath: string[];
-    resolvedInstallPath: string[];
-    resolvedMainJs: string;
-}
-/**
- * Get Foundry VTT package information stored in "package.json".
- * @param rootPath The directory path to the root of the Foundry VTT package.
- * @param fileName The file name if different from "package.json".
- * @returns Foundry VTT package information.
- */
-declare function getFoundryPackageInfo(rootPath?: string, fileName?: string): Promise<FoundryInfo & Record<string, string | unknown>>;
-/**
- * Get Foundry VTT config information stored in `foundry.{json|yaml|yml}` or `foundry.<OS>.{json|yaml|yml}`.
- * @param rootPath The directory path to the root of the Foundry VTT package.
- * @returns Foundry VTT configuration information.
- */
-declare function getFoundryConfigInfo(rootPath?: string): Promise<FoundryConfigInfo | undefined>;
 /**
  * Launch the local Foundry VTT server if configuration is set.
  * @param rootPath The directory path to the root of the Foundry VTT package.
@@ -130,4 +112,50 @@ declare function launchFoundry(rootPath?: string, { dataPath, world, port, demo,
     noupdate?: boolean;
 }): Promise<void>;
 
-export { type DocumentType, type FoundryConfigInfo, type FoundryInfo, compilePack, extractPack, getFoundryConfigInfo, getFoundryPackageInfo, launchFoundry };
+/** The type of Foundry VTT package manifest. */
+type ManifestType = "module" | "system";
+/** The information about a Foundry VTT package. */
+interface Manifest {
+    /** The package identifier. */
+    id: string;
+    /** The package title. */
+    title: string;
+    /** The package version. */
+    version: string;
+    /** The ES modules. */
+    esmodules: string[];
+    /** The scripts. */
+    scripts: string[];
+    /** The styles. */
+    styles: string[];
+    /** The languages. */
+    languages: Language[];
+}
+/** The information about a Foundry VTT package language. */
+interface Language {
+    /** The language code. */
+    lang: string;
+    /** The language name. */
+    name: string;
+    /** The language file path. */
+    path: string;
+}
+/** The information about a Foundry VTT package manifest. */
+interface ManifestInfo {
+    /** The Foundry VTT package type. */
+    type: ManifestType;
+    /** The path to the manifest of the package. */
+    path: string;
+    /** Load the manifest data. */
+    manifest: () => Promise<Manifest>;
+    /** Get the base URL for the Foundry VTT package. */
+    baseUrl: () => Promise<string | undefined>;
+}
+/**
+ * Find the Foundry VTT manifest file.
+ * @param cwd The current working directory to start searching from.
+ * @returns The found manifest information.
+ */
+declare function findManifest(cwd?: string): Promise<ManifestInfo | undefined>;
+
+export { type DocumentType, type FoundryConfigInfo, type Manifest, type ManifestInfo, type ManifestType, compilePack, extractPack, findManifest, getFoundryConfigInfo, launchFoundry };
