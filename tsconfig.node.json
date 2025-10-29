@@ -14,7 +14,8 @@
     "strict": true,
     /* Completeness */
     "skipDefaultLibCheck": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "types": ["tsup"]
   },
-  "include": ["vite.config.ts"]
+  "include": ["vite.config.ts", "tsup.config.ts"]
 }

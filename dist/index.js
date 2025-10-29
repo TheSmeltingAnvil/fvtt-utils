@@ -42,7 +42,7 @@ module.exports = __toCommonJS(index_exports);
 var import_fs_extra2 = __toESM(require("fs-extra"));
 var import_path2 = __toESM(require("path"));
 
-// node_modules/.pnpm/js-yaml@4.1.0/node_modules/js-yaml/dist/js-yaml.mjs
+// ../../node_modules/.pnpm/js-yaml@4.1.0/node_modules/js-yaml/dist/js-yaml.mjs
 function isNothing(subject) {
   return typeof subject === "undefined" || subject === null;
 }
@@ -2238,7 +2238,7 @@ function chooseScalarStyle(string, singleLineOnly, indentPerLevel, lineWidth, te
   return quotingType === QUOTING_TYPE_DOUBLE ? STYLE_DOUBLE : STYLE_SINGLE;
 }
 function writeScalar(state, string, level, iskey, inblock) {
-  state.dump = function() {
+  state.dump = (function() {
     if (string.length === 0) {
       return state.quotingType === QUOTING_TYPE_DOUBLE ? '""' : "''";
     }
@@ -2276,7 +2276,7 @@ function writeScalar(state, string, level, iskey, inblock) {
       default:
         throw new exception("impossible error: invalid scalar style");
     }
-  }();
+  })();
 }
 function blockHeader(string, indentPerLevel) {
   var indentIndicator = needIndentIndicator(string) ? String(indentPerLevel) : "";
@@ -2290,12 +2290,12 @@ function dropEndingNewline(string) {
 }
 function foldString(string, width) {
   var lineRe = /(\n+)([^\n]*)/g;
-  var result = function() {
+  var result = (function() {
     var nextLF = string.indexOf("\n");
     nextLF = nextLF !== -1 ? nextLF : string.length;
     lineRe.lastIndex = nextLF;
     return foldLine(string.slice(0, nextLF), width);
-  }();
+  })();
   var prevMoreIndented = string[0] === "\n" || string[0] === " ";
   var moreIndented;
   var match;

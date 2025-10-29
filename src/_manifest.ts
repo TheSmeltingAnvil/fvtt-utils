@@ -12,6 +12,8 @@ export interface Manifest {
   id: string
   /** The package title. */
   title: string
+  /** The package description. */
+  description: string
   /** The package version. */
   version: string
   /** The ES modules. */
