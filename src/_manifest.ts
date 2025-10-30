@@ -67,12 +67,12 @@ export async function findManifest(cwd?: string): Promise<ManifestInfo | undefin
   const found = walkFiles(manifestCandidates, { cwd })
   if (found.length === 0) return undefined
   const manifestPath = found[0]
-  const { base } = path.parse(manifestPath)
+  const { name } = path.parse(manifestPath)
   let cachedManifest: Manifest | undefined = undefined
   const manifest = async () => (cachedManifest ??= await loadManifest(manifestPath))
   const manifestInfo = {
     path: manifestPath,
-    type: base as ManifestType,
+    type: name as ManifestType,
     manifest,
     baseUrl: () => getFoundryBaseUrl(manifestInfo),
   } satisfies ManifestInfo

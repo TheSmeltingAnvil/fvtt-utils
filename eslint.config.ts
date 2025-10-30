@@ -1,7 +1,7 @@
 import pluginJs from "@eslint/js"
+import { Linter } from "eslint"
 import globals from "globals"
 import tseslint from "typescript-eslint"
-import { Linter } from "eslint"
 
 export default [
   { files: ["**/*.{js,mjs,cjs,ts}"] },

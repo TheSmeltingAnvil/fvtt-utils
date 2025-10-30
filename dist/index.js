@@ -30,8 +30,6 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/index.ts
 var index_exports = {};
 __export(index_exports, {
-  compilePack: () => compilePack,
-  extractPack: () => extractPack,
   findManifest: () => findManifest,
   getFoundryConfigInfo: () => getFoundryConfigInfo,
   launchFoundry: () => launchFoundry
@@ -2769,267 +2767,6 @@ async function getFoundryConfigInfo(cwd) {
   }
 }
 
-// src/_database.ts
-var fse = __toESM(require("fs-extra"));
-var import_path3 = __toESM(require("path"));
-var import_picocolors = __toESM(require("picocolors"));
-var import_classic_level = require("classic-level");
-async function compilePack(src, dest, { nedb = false, yaml = false, recursive = false, log = false, transformEntry } = {}) {
-  if (nedb) throw new Error("NeDB files are obsolete and only Classic database level files are handled!");
-  const files = findSourceFiles(src, { yaml, recursive });
-  return compileClassicLevel(dest, files, { log, transformEntry });
-}
-async function compileClassicLevel(pack, files, { log, transformEntry } = {}) {
-  fse.mkdirSync(pack, { recursive: true });
-  const db = new import_classic_level.ClassicLevel(pack, { keyEncoding: "utf8", valueEncoding: "json" });
-  await db.open();
-  const batch = db.batch();
-  const seenKeys = /* @__PURE__ */ new Set();
-  const packDoc = applyHierarchy(async (doc, collection) => {
-    const key = doc._key;
-    delete doc._key;
-    if (seenKeys.has(key)) {
-      throw new Error(`An entry with key '${key}' was already packed and would be overwritten by this entry.`);
-    }
-    seenKeys.add(key);
-    const value = structuredClone(doc);
-    await mapHierarchy(value, collection, (d) => d._id);
-    batch.put(key, value);
-  });
-  for (const file of files) {
-    try {
-      const contents = fse.readFileSync(file, "utf8");
-      const ext = import_path3.default.extname(file);
-      const isYaml = ext === ".yml" || ext === ".yaml";
-      const doc = isYaml ? load(contents) : JSON.parse(contents);
-      const [, collection] = doc._key.split("!");
-      if (await transformEntry?.(doc) === false) continue;
-      await packDoc(doc, collection);
-      if (log) console.log(`Packed ${import_picocolors.default.blue(doc._id)}${import_picocolors.default.blue(doc.name ? ` (${doc.name})` : "")}`);
-    } catch (err) {
-      if (log) console.error(`Failed to pack ${import_picocolors.default.red(file)}. See error below.`);
-      throw err;
-    }
-  }
-  for (const key of await db.keys().all()) {
-    if (!seenKeys.has(key)) {
-      batch.del(key);
-      if (log) console.log(`Removed ${import_picocolors.default.blue(key)}`);
-    }
-  }
-  await batch.write();
-  await compactClassicLevel(db);
-  await db.close();
-}
-async function compactClassicLevel(db) {
-  const forwardIterator = db.keys({ limit: 1, fillCache: false });
-  const firstKey = await forwardIterator.next();
-  await forwardIterator.close();
-  const backwardIterator = db.keys({ limit: 1, reverse: true, fillCache: false });
-  const lastKey = await backwardIterator.next();
-  await backwardIterator.close();
-  if (firstKey && lastKey) return db.compactRange(firstKey, lastKey, { keyEncoding: "utf8" });
-}
-async function extractPack(src, dest, {
-  nedb = false,
-  yaml = false,
-  yamlOptions = {},
-  jsonOptions = {},
-  log = false,
-  ////documentType,
-  ////collection,
-  clean,
-  folders,
-  transformEntry,
-  transformName,
-  transformFolderName
-} = {}) {
-  if (nedb) throw new Error("NeDB files are obsolete and only Classic database level files are handled!");
-  if (clean) fse.rmSync(dest, { force: true, recursive: true, maxRetries: 10 });
-  fse.mkdirSync(dest, { recursive: true });
-  return extractClassicLevel(src, dest, {
-    yaml,
-    log,
-    yamlOptions,
-    jsonOptions,
-    folders,
-    transformEntry,
-    transformName,
-    transformFolderName
-  });
-}
-async function extractClassicLevel(pack, dest, {
-  yaml,
-  yamlOptions,
-  jsonOptions,
-  log,
-  folders,
-  transformEntry,
-  transformName,
-  transformFolderName
-}) {
-  const db = new import_classic_level.ClassicLevel(pack, { keyEncoding: "utf8", valueEncoding: "json" });
-  await db.open();
-  const foldersMap = /* @__PURE__ */ new Map();
-  if (folders) {
-    for await (const [key, doc] of db.iterator()) {
-      if (!key.startsWith("!folders")) continue;
-      let name = await transformFolderName?.(doc);
-      if (!name) name = doc.name ? `${getSafeFilename(doc.name)}_${doc._id}` : key;
-      foldersMap.set(doc._id, { name, folder: doc.folder });
-    }
-    for (const folder of foldersMap.values()) {
-      let parent = foldersMap.get(folder.folder);
-      folder.path = folder.name;
-      while (parent) {
-        folder.path = import_path3.default.join(parent.name, folder.path);
-        parent = foldersMap.get(parent.folder);
-      }
-    }
-  }
-  const unpackDoc = applyHierarchy(async (doc, collection, options = {}) => {
-    const { sublevelPrefix, idPrefix } = options;
-    const sublevel = keyJoin(sublevelPrefix, collection);
-    const id = keyJoin(idPrefix, doc._id);
-    doc._key = `!${sublevel}!${id}`;
-    await mapHierarchy(doc, collection, (embeddedId, embeddedCollectionName) => {
-      return db.get(`!${sublevel}.${embeddedCollectionName}!${id}.${embeddedId}`);
-    });
-    return { sublevelPrefix: sublevel, idPrefix: id };
-  });
-  for await (const [key, doc] of db.iterator()) {
-    const [, collection, id] = key.split("!");
-    if (collection.includes(".")) continue;
-    await unpackDoc(doc, collection);
-    if (await transformEntry?.(doc) === false) continue;
-    const folder = foldersMap?.get(doc.folder)?.path;
-    let name = await transformName?.(doc, { folder });
-    if (!name) {
-      if (key.startsWith("!folders") && foldersMap?.has(doc._id)) {
-        const folder2 = foldersMap.get(doc._id);
-        name = import_path3.default.join(folder2.name, `_Folder.${yaml ? "yml" : "json"}`);
-      } else {
-        name = `${doc.name ? `${getSafeFilename(doc.name)}_${id}` : key}.${yaml ? "yml" : "json"}`;
-      }
-      if (folder) name = import_path3.default.join(folder, name);
-    }
-    const filename = import_path3.default.join(dest, name);
-    serializeDocument(doc, filename, { yaml, yamlOptions, jsonOptions });
-    if (log) console.log(`Wrote ${import_picocolors.default.blue(name)}`);
-  }
-  await db.close();
-}
-function applyHierarchy(fn) {
-  const apply = async (doc, collection, options = {}) => {
-    const newOptions = await fn(doc, collection, options);
-    for (const [embeddedCollectionName, type2] of Object.entries(HIERARCHY[collection] ?? {})) {
-      const embeddedValue = doc[embeddedCollectionName];
-      if (Array.isArray(type2) && Array.isArray(embeddedValue)) {
-        for (const embeddedDoc of embeddedValue) await apply(embeddedDoc, embeddedCollectionName, newOptions ?? {});
-      } else if (embeddedValue) {
-        await apply(embeddedValue, embeddedCollectionName, newOptions ?? {});
-      }
-    }
-  };
-  return apply;
-}
-async function mapHierarchy(doc, collection, fn) {
-  for (const [embeddedCollectionName, type2] of Object.entries(HIERARCHY[collection] ?? {})) {
-    const embeddedValue = doc[embeddedCollectionName];
-    if (Array.isArray(type2)) {
-      if (Array.isArray(embeddedValue)) {
-        doc[embeddedCollectionName] = await Promise.all(
-          embeddedValue.map((entry) => {
-            return fn(entry, embeddedCollectionName);
-          })
-        );
-      } else doc[embeddedCollectionName] = [];
-    } else {
-      if (embeddedValue) doc[embeddedCollectionName] = await fn(embeddedValue, embeddedCollectionName);
-      else doc[embeddedCollectionName] = null;
-    }
-  }
-}
-function findSourceFiles(root, { yaml = false, recursive = false } = {}) {
-  const files = [];
-  for (const entry of fse.readdirSync(root, { withFileTypes: true })) {
-    const name = import_path3.default.join(root, entry.name);
-    if (entry.isDirectory() && recursive) {
-      files.push(...findSourceFiles(name, { yaml, recursive }));
-      continue;
-    }
-    if (!entry.isFile()) continue;
-    const ext = import_path3.default.extname(name);
-    const isYaml = ext === ".yml" || ext === ".yaml";
-    if (yaml && isYaml) files.push(name);
-    else if (!yaml && ext === ".json") files.push(name);
-  }
-  return files;
-}
-function getSafeFilename(filename) {
-  return filename.normalize("NFD").replace(/[^a-zA-Z0-9\u0300-\u036F]/gu, "_");
-}
-function keyJoin(...args) {
-  return args.filter((_) => _).join(".");
-}
-function serializeDocument(doc, filename, { yaml, yamlOptions = {}, jsonOptions = {} } = {}) {
-  fse.mkdirSync(import_path3.default.dirname(filename), { recursive: true });
-  const serialized = (() => {
-    if (yaml) return dump(doc, yamlOptions);
-    else {
-      const { replacer = null, space = 2 } = jsonOptions;
-      return JSON.stringify(doc, replacer, space) + "\n";
-    }
-  })();
-  fse.writeFileSync(filename, serialized);
-}
-var HIERARCHY = {
-  actors: {
-    items: [],
-    effects: []
-  },
-  cards: {
-    cards: []
-  },
-  combats: {
-    combatants: []
-  },
-  delta: {
-    items: [],
-    effects: []
-  },
-  items: {
-    effects: []
-  },
-  journal: {
-    pages: [],
-    categories: []
-  },
-  playlists: {
-    sounds: []
-  },
-  regions: {
-    behaviors: []
-  },
-  tables: {
-    results: []
-  },
-  tokens: {
-    delta: {}
-  },
-  scenes: {
-    drawings: [],
-    tokens: [],
-    lights: [],
-    notes: [],
-    regions: [],
-    sounds: [],
-    templates: [],
-    tiles: [],
-    walls: []
-  }
-};
-
 // src/_launch.ts
 var import_child_process = require("child_process");
 var dotenv = __toESM(require("dotenv"));
@@ -3087,7 +2824,7 @@ function launchFoundryPrivate(mainJsPath, dataPath, {
 
 // src/_manifest.ts
 var import_fs_extra3 = __toESM(require("fs-extra"));
-var import_path4 = __toESM(require("path"));
+var import_path3 = __toESM(require("path"));
 var manifestCandidates = [
   "**/module.json",
   "**/module.yaml",
@@ -3101,19 +2838,19 @@ async function findManifest(cwd) {
   const found = walkFiles(manifestCandidates, { cwd });
   if (found.length === 0) return void 0;
   const manifestPath = found[0];
-  const { base } = import_path4.default.parse(manifestPath);
+  const { name } = import_path3.default.parse(manifestPath);
   let cachedManifest = void 0;
   const manifest = async () => cachedManifest ??= await loadManifest(manifestPath);
   const manifestInfo = {
     path: manifestPath,
-    type: base,
+    type: name,
     manifest,
     baseUrl: () => getFoundryBaseUrl(manifestInfo)
   };
   return manifestInfo;
 }
 async function loadManifest(manifestPath) {
-  const { ext } = import_path4.default.posix.parse(manifestPath);
+  const { ext } = import_path3.default.posix.parse(manifestPath);
   const manifestData = await import_fs_extra3.default.readFile(manifestPath, "utf8");
   return ext === ".json" ? JSON.parse(manifestData) : js_yaml_default.load(manifestData);
 }
@@ -3126,12 +2863,10 @@ async function getFoundryBaseUrl(manifestInfo) {
   if (!prefix) return void 0;
   const { id } = await manifestInfo.manifest() ?? { id: void 0 };
   if (!id) return void 0;
-  return import_path4.default.posix.join(prefix, id);
+  return import_path3.default.posix.join(prefix, id);
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  compilePack,
-  extractPack,
   findManifest,
   getFoundryConfigInfo,
   launchFoundry
@@ -3141,3 +2876,4 @@ async function getFoundryBaseUrl(manifestInfo) {
 js-yaml/dist/js-yaml.mjs:
   (*! js-yaml 4.1.0 https://github.com/nodeca/js-yaml @license MIT *)
 */
+//# sourceMappingURL=index.js.map

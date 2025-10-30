@@ -6,4 +6,5 @@ export default {
   entryPoints: ["src/index.ts"],
   format: ["cjs"],
   dts: true,
+  sourcemap: true,
 } as Options
